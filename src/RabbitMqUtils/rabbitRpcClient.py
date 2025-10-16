@@ -62,7 +62,7 @@ class RabbitMQRpcClient(object):
             # Interrompi il consumo (esci dal loop)
             ch.stop_consuming()
 
-    def call(self, queue_name, message: str, timeout: int = 15):
+    def call(self, queue_name, message: str, timeout: int = 15, headers: dict = None): # <--- MODIFICA 1: Aggiunto 'headers'
         """
         Esegue una chiamata RPC.
         ... (omissis) ...
@@ -78,21 +78,27 @@ class RabbitMQRpcClient(object):
         self.callback_queue = result.method.queue
 
         # 2. Configura il consumer per la coda di risposta
-        # L'uso di auto_ack=True è comune in RPC
         self.channel.basic_consume(
             queue=self.callback_queue,
             on_message_callback=self.on_response,
             auto_ack=True
         )
 
+        # --- MODIFICA 2: Costruzione dinamica delle proprietà RPC ---
+        properties_args = {
+            'reply_to': self.callback_queue,
+            'correlation_id': self.corr_id,
+        }
+
+        # Includi gli headers se forniti
+        if headers is not None:
+            properties_args['headers'] = headers
+
         # 3. Pubblica la richiesta con le proprietà RPC
         self.channel.basic_publish(
             exchange='',
             routing_key=queue_name,
-            properties=pk.BasicProperties(
-                reply_to=self.callback_queue,
-                correlation_id=self.corr_id,
-            ),
+            properties=pk.BasicProperties(**properties_args),  # <--- MODIFICA 3: Usa il dizionario costruito
             body=message.encode('utf-8')
         )
         logger.info(f"Richiesta RPC inviata a '{queue_name}' con ID: {self.corr_id}")
