@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e8700e96-6b30-4cf3-947b-54938c2c9208" name="Changes" comment="Aggiunta l'utility per la gestione del file di configurazione che viene ricaricato a caldo, senza bisogno di riavviare il servizio per la sua rilettura">
+    <list default="true" id="e8700e96-6b30-4cf3-947b-54938c2c9208" name="Changes" comment="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitQueueDlq.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitQueueDlq.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitRpcClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitRpcClient.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/__init__.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -108,14 +105,23 @@
       <option name="project" value="LOCAL" />
       <updated>1762440531545</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente">
+      <option name="closed" value="true" />
+      <created>1762604365276</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1762604365276</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Primo Commit" />
     <MESSAGE value="Modulo rabbitRpcClient.py:&#10;- Modificata la firma del modulo di publish per accettare anche un header personalizzato" />
     <MESSAGE value="Aggiunta l'utility per la gestione del file di configurazione che viene ricaricato a caldo, senza bisogno di riavviare il servizio per la sua rilettura" />
-    <option name="LAST_COMMIT_MESSAGE" value="Aggiunta l'utility per la gestione del file di configurazione che viene ricaricato a caldo, senza bisogno di riavviare il servizio per la sua rilettura" />
+    <MESSAGE value="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente" />
+    <option name="LAST_COMMIT_MESSAGE" value="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
