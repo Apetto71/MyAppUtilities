@@ -5,6 +5,7 @@ import logging
 import uuid
 import threading
 from RabbitMqUtils.rabbitQueueDlq import RabbitConnectionError
+from typing import Optional # Aggiungere in cima al file se non presente
 
 logger = logging.getLogger(__name__)
 
@@ -62,68 +63,196 @@ class RabbitMQRpcClient(object):
             # Interrompi il consumo (esci dal loop)
             ch.stop_consuming()
 
-    def call(self, queue_name, message: str, timeout: int = 15, headers: dict = None): # <--- MODIFICA 1: Aggiunto 'headers'
-        """
-        Esegue una chiamata RPC.
-        ... (omissis) ...
-        """
-        if not self.channel or not self.channel.is_open:
-            raise RabbitConnectionError("Canale RPC non disponibile.")
+    # def call(self, queue_name, message: str, timeout: int = 15, headers: dict = None): # <--- MODIFICA 1: Aggiunto 'headers'
+    #     """
+    #     Esegue una chiamata RPC.
+    #     ... (omissis) ...
+    #     """
+    #     # Se la connessione è persa, tentiamo di ristabilirla.
+    #     if self.channel is None or self.channel.is_closed:
+    #         logger.warning("Canale RPC non disponibile/chiuso. Tentativo di riconnessione.")
+    #
+    #         # Chiudiamo la connessione precedente se non è già chiusa, per sicurezza
+    #         if self.connection and not self.connection.is_closed:
+    #             try:
+    #                 self.connection.close()
+    #             except Exception:
+    #                 # Ignoriamo errori di chiusura se il socket è già rotto
+    #                 pass
+    #
+    #         # Tentativo di riconnessione. Solleva RabbitConnectionError in caso di fallimento.
+    #         try:
+    #             self.connect()
+    #         except RabbitConnectionError as e:
+    #             logger.error(f"Riconnessione RPC fallita: {e}")
+    #             raise
+    #
+    #         if self.channel is None or self.channel.is_closed:
+    #             raise RabbitConnectionError("Riconnessione RPC fallita. Impossibile eseguire la chiamata.")
+    #     # =========================================================================
+    #
+    #     self.response = None
+    #     self.corr_id = str(uuid.uuid4())
+    #
+    #     # 1. Definisce la coda temporanea 'reply_to'
+    #     # ... (Il resto del codice originale segue da qui)
+    #     result = self.channel.queue_declare(queue='', exclusive=True)
+    #     if not self.channel or not self.channel.is_open:
+    #         raise RabbitConnectionError("Canale RPC non disponibile.")
+    #
+    #     self.response = None
+    #     self.corr_id = str(uuid.uuid4())
+    #
+    #     # 1. Dichiarazione della coda di risposta (esclusiva, auto-cancellante)
+    #     result = self.channel.queue_declare(queue='', exclusive=True)
+    #     self.callback_queue = result.method.queue
+    #
+    #     # 2. Configura il consumer per la coda di risposta
+    #     self.channel.basic_consume(
+    #         queue=self.callback_queue,
+    #         on_message_callback=self.on_response,
+    #         auto_ack=True
+    #     )
+    #
+    #     # --- MODIFICA 2: Costruzione dinamica delle proprietà RPC ---
+    #     properties_args = {
+    #         'reply_to': self.callback_queue,
+    #         'correlation_id': self.corr_id,
+    #     }
+    #
+    #     # Includi gli headers se forniti
+    #     if headers is not None:
+    #         properties_args['headers'] = headers
+    #
+    #     # 3. Pubblica la richiesta con le proprietà RPC
+    #     self.channel.basic_publish(
+    #         exchange='',
+    #         routing_key=queue_name,
+    #         properties=pk.BasicProperties(**properties_args),  # <--- MODIFICA 3: Usa il dizionario costruito
+    #         body=message.encode('utf-8')
+    #     )
+    #     logger.info(f"Richiesta RPC inviata a '{queue_name}' con ID: {self.corr_id}")
+    #
+    #     # 4. Ciclo di attesa (Metodo più robusto per BlockingConnection)
+    #     start_time = time.time()
+    #
+    #     while self.response is None and (time.time() - start_time) < timeout:
+    #         # Attendiamo passivamente gli eventi (1 secondo alla volta)
+    #         # Questo è il modo corretto per Pika per fare un'attesa con timeout
+    #         self.connection.process_data_events(time_limit=1)
+    #
+    #         # Nota: se la on_response riceve il messaggio, chiama ch.stop_consuming(),
+    #         # che interromperà il loop interno di process_data_events se era in esecuzione,
+    #         # e imposterà self.response.
+    #
+    #     if self.response is None:
+    #         # Se usciamo dal ciclo per timeout, dobbiamo anche rimuovere il consumer
+    #         # per liberare la coda temporanea, anche se è esclusiva.
+    #         self.channel.queue_delete(queue=self.callback_queue)
+    #         logger.error(f"Timeout o nessuna risposta ricevuta per RPC ID: {self.corr_id}")
+    #         raise TimeoutError("Timeout scaduto in attesa di risposta RPC.")
+    #
+    #     # Elimina la coda temporanea dopo l'uso
+    #     self.channel.queue_delete(queue=self.callback_queue)
+    #
+    #     logger.info(f"Risposta RPC ricevuta per ID: {self.corr_id}")
+    #     return self.response
+    def call(self, queue_name, message: str, timeout: int = 15, headers: dict = None):
+        """Esegue una chiamata RPC con logica di retry in caso di StreamLostError (ConnectionResetError)."""
 
-        self.response = None
-        self.corr_id = str(uuid.uuid4())
+        # Tentativo massimo di 2 volte (1 normale + 1 retry)
+        MAX_ATTEMPTS = 2
 
-        # 1. Dichiarazione della coda di risposta (esclusiva, auto-cancellante)
-        result = self.channel.queue_declare(queue='', exclusive=True)
-        self.callback_queue = result.method.queue
+        for attempt in range(MAX_ATTEMPTS):
+            try:
+                # =========================================================================
+                # 1. GESTIONE STATO E RICONNESSIONE PREVENTIVA
+                # Se la connessione è palesemente inattiva o chiusa, prova a ristabilirla.
+                if self.channel is None or self.connection is None or not self.connection.is_open:
+                    logger.warning(f"Tentativo {attempt + 1}: Canale RPC non disponibile/chiuso. Riconnessione...")
 
-        # 2. Configura il consumer per la coda di risposta
-        self.channel.basic_consume(
-            queue=self.callback_queue,
-            on_message_callback=self.on_response,
-            auto_ack=True
-        )
+                    # Pulizia aggressiva della vecchia istanza, specialmente dopo un StreamLostError al Tentativo 1.
+                    if self.connection and self.connection.is_open:
+                        try:
+                            self.connection.close()
+                        except Exception:
+                            pass
 
-        # --- MODIFICA 2: Costruzione dinamica delle proprietà RPC ---
-        properties_args = {
-            'reply_to': self.callback_queue,
-            'correlation_id': self.corr_id,
-        }
+                    # Forza il client a creare nuove istanze di connessione e canale
+                    self.connection = None
+                    self.channel = None
 
-        # Includi gli headers se forniti
-        if headers is not None:
-            properties_args['headers'] = headers
+                    self.connect()  # Solleva RabbitConnectionError in caso di fallimento.
 
-        # 3. Pubblica la richiesta con le proprietà RPC
-        self.channel.basic_publish(
-            exchange='',
-            routing_key=queue_name,
-            properties=pk.BasicProperties(**properties_args),  # <--- MODIFICA 3: Usa il dizionario costruito
-            body=message.encode('utf-8')
-        )
-        logger.info(f"Richiesta RPC inviata a '{queue_name}' con ID: {self.corr_id}")
+                    if self.channel is None or self.channel.is_closed:
+                        raise RabbitConnectionError("Riconnessione RPC fallita. Impossibile eseguire la chiamata.")
+                # =========================================================================
 
-        # 4. Ciclo di attesa (Metodo più robusto per BlockingConnection)
-        start_time = time.time()
+                # Inizializza/Reset dei parametri per la chiamata
+                self.response = None
+                self.corr_id = str(uuid.uuid4())
 
-        while self.response is None and (time.time() - start_time) < timeout:
-            # Attendiamo passivamente gli eventi (1 secondo alla volta)
-            # Questo è il modo corretto per Pika per fare un'attesa con timeout
-            self.connection.process_data_events(time_limit=1)
+                # 2. Dichiarazione della coda di risposta (esclusiva)
+                # Questa linea scatena l'errore StreamLostError se la connessione è "zombie"
+                result = self.channel.queue_declare(queue='', exclusive=True)
+                self.callback_queue = result.method.queue
 
-            # Nota: se la on_response riceve il messaggio, chiama ch.stop_consuming(),
-            # che interromperà il loop interno di process_data_events se era in esecuzione,
-            # e imposterà self.response.
+                # 3. Configura il consumer
+                self.channel.basic_consume(
+                    queue=self.callback_queue,
+                    on_message_callback=self.on_response,
+                    auto_ack=True
+                )
 
-        if self.response is None:
-            # Se usciamo dal ciclo per timeout, dobbiamo anche rimuovere il consumer
-            # per liberare la coda temporanea, anche se è esclusiva.
-            self.channel.queue_delete(queue=self.callback_queue)
-            logger.error(f"Timeout o nessuna risposta ricevuta per RPC ID: {self.corr_id}")
-            raise TimeoutError("Timeout scaduto in attesa di risposta RPC.")
+                # 4. Pubblica la richiesta
+                properties_args = {
+                    'reply_to': self.callback_queue,
+                    'correlation_id': self.corr_id,
+                }
+                if headers is not None:
+                    properties_args['headers'] = headers
 
-        # Elimina la coda temporanea dopo l'uso
-        self.channel.queue_delete(queue=self.callback_queue)
+                self.channel.basic_publish(
+                    exchange='',
+                    routing_key=queue_name,
+                    properties=pk.BasicProperties(**properties_args),
+                    body=message.encode('utf-8')
+                )
+                logger.info(f"Richiesta RPC inviata a '{queue_name}' con ID: {self.corr_id}")
 
-        logger.info(f"Risposta RPC ricevuta per ID: {self.corr_id}")
-        return self.response
+                # 5. Ciclo di attesa (Attende la risposta con timeout)
+                start_time = time.time()
+                while self.response is None and (time.time() - start_time) < timeout:
+                    self.connection.process_data_events(time_limit=1)
+
+                # 6. Pulizia e Ritorno
+                try:
+                    # Elimina la coda temporanea dopo l'uso
+                    self.channel.queue_delete(queue=self.callback_queue)
+                except Exception:
+                    pass  # Ignora errori di pulizia su canale potenzialmente rotto
+
+                if self.response is None:
+                    logger.error(f"Timeout o nessuna risposta ricevuta per RPC ID: {self.corr_id}")
+                    raise TimeoutError("Timeout scaduto in attesa di risposta RPC.")
+
+                logger.info(f"Risposta RPC ricevuta per ID: {self.corr_id}")
+                return self.response  # Successo: esci dalla funzione e dal loop
+
+
+            except pk.exceptions.StreamLostError as e:
+                # CATTURA DELL'ERRORE: La connessione è morta al primo uso (ConnectionReset)
+                if attempt < MAX_ATTEMPTS - 1:
+                    logger.warning(
+                        f"Stream RPC perso durante la chiamata. Riprovo ({attempt + 1}/{MAX_ATTEMPTS - 1})...")
+                    self.connection = None
+                    self.channel = None
+                    continue
+                else:
+                    logger.error(
+                        f"Errore StreamLostError non recuperabile dopo {MAX_ATTEMPTS} tentativi. Chiamata fallita: {e}")
+                    raise RabbitConnectionError(f"Errore RPC non recuperabile: {e}") from e
+
+            except Exception as e:
+                # Cattura tutti gli altri errori
+                raise e

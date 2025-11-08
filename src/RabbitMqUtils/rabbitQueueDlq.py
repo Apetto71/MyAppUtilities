@@ -1,7 +1,7 @@
 import pika as pk
 import logging
 import threading # <-- Importazione Aggiunta!
-import socket
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -83,54 +83,115 @@ class RabbitMQSimpleDLQ(object):
         self.connection = None
         self.channel = None
 
-    def publish_message(self, exchange_name, routing_key, message, headers=None):
+    # def publish_message(self, exchange_name, routing_key, message, headers=None):
+    #     """
+    #     Pubblica un messaggio persistente in un exchange specificato, supportando gli Headers.
+    #
+    #     Args:
+    #         exchange_name (str): Nome dell'Exchange.
+    #         routing_key (str): Routing Key.
+    #         message (bytes): Corpo del messaggio.
+    #         headers (dict, optional): Dizionario di metadati personalizzati da allegare.
+    #     """
+    #     if not self.channel or not self.channel.is_open:
+    #         logger.warning("Canale non aperto o disponibile. Riprovo la connessione...")
+    #         # Qui potresti aggiungere una logica di riconnessione se necessario
+    #         raise RabbitConnectionError("Canale non disponibile per la pubblicazione.")
+    #
+    #     # Prepara le proprietà
+    #     basic_properties_args = {
+    #         'delivery_mode': 2,  # Rende il messaggio persistente
+    #     }
+    #
+    #     # Aggiunge gli headers se sono forniti
+    #     if headers is not None:
+    #         basic_properties_args['headers'] = headers
+    #
+    #     properties = pk.BasicProperties(**basic_properties_args)
+    #
+    #     try:
+    #         # 1. Pubblica il messaggio
+    #         self.channel.basic_publish(
+    #             exchange=exchange_name,
+    #             routing_key=routing_key,
+    #             body=message,
+    #             # 2. Imposta proprietà per rendere il messaggio persistente
+    #             properties=properties
+    #             )
+    #
+    #         # Nota: Non loggare ogni singolo publish, altrimenti la log è enorme
+    #         # logger.debug(f"Messaggio pubblicato su {exchange_name} con key {routing_key}")
+    #
+    #     except pk.exceptions.AMQPChannelError as e:
+    #         logger.error(f"Errore di canale durante la pubblicazione: {e}")
+    #         raise
+    #     except pk.exceptions.AMQPConnectionError as e:
+    #         logger.error(f"Errore di connessione durante la pubblicazione: {e}")
+    #         raise RabbitConnectionError(f"Connessione persa durante la pubblicazione: {e}")
+    #     except Exception as e:
+    #         logger.error(f"Errore generico durante la pubblicazione: {e}")
+    #         raise
+
+    def publish_message(self, exchange_name, routing_key, message: bytes, headers: Optional[dict] = None):
         """
-        Pubblica un messaggio persistente in un exchange specificato, supportando gli Headers.
-
-        Args:
-            exchange_name (str): Nome dell'Exchange.
-            routing_key (str): Routing Key.
-            message (bytes): Corpo del messaggio.
-            headers (dict, optional): Dizionario di metadati personalizzati da allegare.
+        Pubblica un messaggio, con logica di retry in caso di StreamLostError.
         """
-        if not self.channel or not self.channel.is_open:
-            logger.warning("Canale non aperto o disponibile. Riprovo la connessione...")
-            # Qui potresti aggiungere una logica di riconnessione se necessario
-            raise RabbitConnectionError("Canale non disponibile per la pubblicazione.")
+        MAX_ATTEMPTS = 2
 
-        # Prepara le proprietà
-        basic_properties_args = {
-            'delivery_mode': 2,  # Rende il messaggio persistente
-        }
+        for attempt in range(MAX_ATTEMPTS):
+            try:
+                # 1. GESTIONE STATO E RICONNESSIONE PREVENTIVA
+                # Se la connessione è palesemente inattiva o chiusa, prova a ristabilirla.
+                if self.channel is None or self.connection is None or not self.connection.is_open:
+                    logger.warning(f"Tentativo {attempt + 1}: Canale DLQ non disponibile/chiuso. Riconnessione...")
 
-        # Aggiunge gli headers se sono forniti
-        if headers is not None:
-            basic_properties_args['headers'] = headers
+                    # Pulizia aggressiva della vecchia istanza, se necessario
+                    if self.connection and self.connection.is_open:
+                        try:
+                            self.connection.close()
+                        except Exception:
+                            pass
 
-        properties = pk.BasicProperties(**basic_properties_args)
+                    # Forza il client a creare nuove istanze di connessione e canale
+                    self.connection = None
+                    self.channel = None
 
-        try:
-            # 1. Pubblica il messaggio
-            self.channel.basic_publish(
-                exchange=exchange_name,
-                routing_key=routing_key,
-                body=message,
-                # 2. Imposta proprietà per rendere il messaggio persistente
-                properties=properties
+                    self.connect()  # Solleva RabbitConnectionError in caso di fallimento.
+
+                    if self.channel is None or self.channel.is_closed:
+                        raise RabbitConnectionError("Riconnessione DLQ fallita. Impossibile eseguire la pubblicazione.")
+
+                # 2. ESECUZIONE DELLA PUBBLICAZIONE
+                self.channel.basic_publish(
+                    exchange=exchange_name,
+                    routing_key=routing_key,
+                    body=message,
+                    properties=pk.BasicProperties(
+                        delivery_mode=pk.spec.PERSISTENT_DELIVERY_MODE,
+                        headers=headers or {}
+                    )
                 )
+                logger.debug(f"Messaggio pubblicato su {exchange_name} con RK: {routing_key}")
+                return  # Successo: esci dalla funzione e dal loop
 
-            # Nota: Non loggare ogni singolo publish, altrimenti la log è enorme
-            # logger.debug(f"Messaggio pubblicato su {exchange_name} con key {routing_key}")
+            except pk.exceptions.StreamLostError as e:
+                # CATTURA DELL'ERRORE: La connessione è morta al primo uso (ConnectionReset)
+                if attempt < MAX_ATTEMPTS - 1:
+                    logger.warning(
+                        f"Stream DLQ perso durante la pubblicazione. Riprovo ({attempt + 1}/{MAX_ATTEMPTS - 1})...")
+                    # Pulizia aggressiva dello stato rotto per il prossimo tentativo
+                    self.connection = None
+                    self.channel = None
+                    continue  # Passa al prossimo ciclo (tentativo di retry)
+                else:
+                    logger.error(
+                        f"Errore StreamLostError non recuperabile dopo {MAX_ATTEMPTS} tentativi. Pubblicazione fallita: {e}")
+                    # Solleva l'errore per il gestore chiamante (gestore_rabbit.salva_dati)
+                    raise RabbitConnectionError(f"Connessione persa durante la pubblicazione: {e}") from e
 
-        except pk.exceptions.AMQPChannelError as e:
-            logger.error(f"Errore di canale durante la pubblicazione: {e}")
-            raise
-        except pk.exceptions.AMQPConnectionError as e:
-            logger.error(f"Errore di connessione durante la pubblicazione: {e}")
-            raise RabbitConnectionError(f"Connessione persa durante la pubblicazione: {e}")
-        except Exception as e:
-            logger.error(f"Errore generico durante la pubblicazione: {e}")
-            raise
+            except Exception as e:
+                # Cattura altri errori di pubblicazione (es. ChannelClosedByBroker)
+                raise RabbitConnectionError(f"Errore inatteso durante la pubblicazione: {e}") from e
 
     def setup_main_and_dlq(self, main_exchange: str, main_queue: str, routing_key: str):
         """
