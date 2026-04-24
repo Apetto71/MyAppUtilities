@@ -1,5 +1,5 @@
 import time
-
+import json
 import pika as pk
 import logging
 import uuid
@@ -256,3 +256,86 @@ class RabbitMQRpcClient(object):
             except Exception as e:
                 # Cattura tutti gli altri errori
                 raise e
+
+    def on_stream_response(self, ch, method, props, body):
+        """Callback per gestire i chunk in arrivo nell'AI Service"""
+        if self.corr_id == props.correlation_id:
+
+            # 1. Verifica immediata del segnale di chiusura (Header)
+            if props.headers and props.headers.get('stream-end') is True:
+                logger.info(f"✅ EOF ricevuto via Header per ID: {self.corr_id}")
+                self.stream_finished = True
+                return
+
+            try:
+                # 2. Decodifica del contenuto
+                decoded_body = body.decode('utf-8')
+                data = json.loads(decoded_body)
+
+                # 3. Controllo di sicurezza se l'EOF fosse nel body
+                if isinstance(data, dict) and data.get('status') == 'EOF':
+                    logger.info(f"✅ EOF ricevuto via Body per ID: {self.corr_id}")
+                    self.stream_finished = True
+                    return
+
+                # 4. Accumulo dei dati effettivi
+                with self.lock:
+                    if isinstance(data, list):
+                        self.response.extend(data)
+                    else:
+                        self.response.append(data)
+
+            except Exception as e:
+                logger.error(f"❌ Errore processamento chunk: {e}")
+
+    def call_stream(self, queue_name, message: str, timeout: int = 300, headers: dict = None):
+        self.response = []  # Resetta la lista dei dati
+        self.stream_finished = False  # Resetta il flag di fine
+        self.corr_id = str(uuid.uuid4())
+
+        if self.channel is None or not self.connection.is_open:
+            self.connect()
+
+        # Creiamo una coda di risposta temporanea ed esclusiva
+        result = self.channel.queue_declare(queue='', exclusive=True)
+        callback_queue = result.method.queue
+
+        # Registriamo la callback specifica per lo streaming
+        self.channel.basic_consume(
+            queue=callback_queue,
+            on_message_callback=self.on_stream_response,
+            auto_ack=True
+        )
+
+        # Invio della richiesta con gli header necessari (x-request-activity)
+        self.channel.basic_publish(
+            exchange='',
+            routing_key=queue_name,
+            properties=pk.BasicProperties(
+                reply_to=callback_queue,
+                correlation_id=self.corr_id,
+                headers=headers
+            ),
+            body=message.encode('utf-8')
+        )
+
+        logger.info(f"Avviata chiamata streaming RPC ID: {self.corr_id} su coda {queue_name}")
+
+        start_time = time.time()
+        # Loop di attesa: continua finché il server non manda 'stream-end'
+        while not self.stream_finished:
+            self.connection.process_data_events(time_limit=1)
+
+            if (time.time() - start_time) > timeout:
+                # Pulizia coda in caso di errore
+                self.channel.queue_delete(queue=callback_queue)
+                logger.error(f"Timeout streaming RPC per ID: {self.corr_id}")
+                raise TimeoutError("Il server non ha terminato lo streaming entro il tempo limite.")
+
+        # Pulizia finale della coda temporanea
+        try:
+            self.channel.queue_delete(queue=callback_queue)
+        except Exception:
+            pass
+
+        return self.response

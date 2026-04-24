@@ -1,0 +1,190 @@
+import os
+import threading
+import configparser
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+
+class ConfigReloader(FileSystemEventHandler):
+    """Gestisce l'evento di modifica del file di configurazione .ini."""
+
+    def __init__(self, config_manager):
+        self.config_manager = config_manager
+
+    def on_modified(self, event):
+        if event.src_path == os.path.abspath(self.config_manager.config_path):
+            print(f"[ConfigReloader] File modificato: {event.src_path}")
+            self.config_manager._reload()
+
+
+class ConfigManager:
+    """
+    Singleton per gestire caricamento e aggiornamento automatico della configurazione .ini.
+    """
+
+    _instance = None
+    _instance_lock = threading.Lock()
+
+    def __new__(cls, config_path: str):
+        """
+        Implementazione thread-safe del pattern Singleton.
+        """
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = super(ConfigManager, cls).__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self, config_path: str):
+        if getattr(self, "_initialized", False):
+            # Evita di rieseguire l'inizializzazione per il Singleton
+            return
+
+        self.config_path = os.path.abspath(config_path)
+        self._config = configparser.ConfigParser()
+        self._lock = threading.Lock()
+        self._observer = None
+
+        self._load()
+        self._start_watching()
+
+        self._initialized = True  # Segnala che l'istanza è già inizializzata
+        print(f"[ConfigManager] Singleton inizializzato con {self.config_path}")
+
+    def _load(self):
+        """Carica il file di configurazione .ini. Non fallisce se il file è assente."""
+        if os.path.exists(self.config_path):
+            with self._lock:
+                self._config.read(self.config_path)
+            print("[ConfigManager] Configurazione caricata da file.")
+        else:
+            # Se il file non esiste (il caso nel container), non fa nulla.
+            print(f"[ConfigManager] AVVISO: File non trovato a {self.config_path}. Usando solo variabili d'ambiente.")
+
+    def _reload(self):
+        """Ricarica la configurazione se il file viene modificato."""
+        try:
+            self._load()
+            print("[ConfigManager] Configurazione aggiornata automaticamente.")
+        except Exception as e:
+            print(f"[ConfigManager] Errore durante il reload: {e}")
+
+    def _start_watching(self):
+        """Avvia il monitoraggio del file di configurazione."""
+        event_handler = ConfigReloader(self)
+        observer = Observer()
+        observer.schedule(event_handler, os.path.dirname(self.config_path), recursive=False)
+        observer.start()
+        self._observer = observer
+        print(f"[ConfigManager] Monitoraggio avviato su {self.config_path}")
+
+    # --- Metodi pubblici di accesso ai parametri ---
+
+    def get(self, section: str, option: str, fallback=None):
+        """
+        Recupera il valore (stringa), dando priorità alla variabile d'ambiente.
+        Gestisce rigorosamente stringhe nulle o vuote (dopo la pulizia).
+        """
+        env_key = f"{section}_{option}".upper()
+        env_value = os.getenv(env_key)
+
+        if env_value is not None:
+            # 1. Pulizia e Controllo
+            stripped_value = env_value.strip()
+
+            # 2. Controllo di Validità
+            if stripped_value:
+                return stripped_value
+
+        # 3. Fallback al file .ini
+        # Questo blocco deve essere allineato con l'inizio dell'if env_value.
+        with self._lock:
+            return self._config.get(section, option, fallback=fallback)
+
+
+    def get_int(self, section: str, option: str, fallback=None):
+        """
+        Recupera il valore (intero), dando priorità alla variabile d'ambiente.
+        Tenta la conversione e cade nel fallback in caso di fallimento.
+        """
+        env_key = f"{section}_{option}".upper()
+        env_value = os.getenv(env_key)
+
+        if env_value is not None:
+            stripped_value = env_value.strip()
+
+            if stripped_value:
+                try:
+                    # Usiamo int() direttamente sul valore pulito
+                    return int(stripped_value)
+                except ValueError:
+                    # Il valore della variabile d'ambiente non è un intero valido,
+                    # si ignora e si continua al fallback del file
+                    pass
+
+        # Fallback al file .ini
+        # Questo blocco deve essere allineato con l'inizio dell'if env_value.
+        with self._lock:
+            return self._config.getint(section, option, fallback=fallback)
+
+
+    def get_float(self, section: str, option: str, fallback=None):
+        """
+        Recupera il valore (float), dando priorità alla variabile d'ambiente.
+        Tenta la conversione e cade nel fallback in caso di fallimento.
+        """
+        env_key = f"{section}_{option}".upper()
+        env_value = os.getenv(env_key)
+
+        if env_value is not None:
+            stripped_value = env_value.strip()
+
+            if stripped_value:
+                try:
+                    # Usiamo float() direttamente sul valore pulito
+                    return float(stripped_value)
+                except ValueError:
+                    # Il valore della variabile d'ambiente non è un float valido,
+                    # si ignora e si continua al fallback del file
+                    pass
+
+        # Fallback al file .ini
+        # Questo blocco deve essere allineato con l'inizio dell'if env_value.
+        with self._lock:
+            return self._config.getfloat(section, option, fallback=fallback)
+
+
+    def get_bool(self, section: str, option: str, fallback=None):
+        """
+        Recupera il valore (booleano), dando priorità alla variabile d'ambiente.
+        """
+        env_key = f"{section}_{option}".upper()
+        env_value = os.getenv(env_key)
+
+        if env_value is not None:
+            stripped_value = env_value.strip().lower()
+
+            if stripped_value in ("1", "true", "yes", "on"):
+                return True
+            if stripped_value in ("0", "false", "no", "off"):
+                return False
+
+            # Se la variabile d'ambiente contiene una stringa non booleana valida,
+            # si ignora e si continua al fallback del file
+
+        # Fallback al file .ini
+        # Questo blocco deve essere allineato con l'inizio dell'if env_value.
+        with self._lock:
+            return self._config.getboolean(section, option, fallback=fallback)
+
+    def sections(self):
+        with self._lock:
+            return self._config.sections()
+
+    def stop(self):
+        """Ferma il monitoraggio del file."""
+        if self._observer:
+            self._observer.stop()
+            self._observer.join()
+            print("[ConfigManager] Monitoraggio interrotto.")

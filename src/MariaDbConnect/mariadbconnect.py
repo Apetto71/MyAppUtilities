@@ -50,6 +50,33 @@ class DBConnect:
             return cls._cnxpool.get_connection()
 
 
+from sqlalchemy import create_engine
+
+
+class SqlAlchemyEngine:
+    """Nuova classe per gestire l'engine SQLAlchemy senza toccare DBConnect"""
+    _engine = None
+
+    @classmethod
+    def get_engine(cls, host, user, password, port=3386, database='localhost', pool_size=5):
+        if cls._engine is None:
+            try:
+                # Stringa di connessione specifica per mysqlconnector
+                conn_str = f"mysql+mysqlconnector://{user}:{password}@{host}:{port}/{database}"
+
+                cls._engine = create_engine(
+                    conn_str,
+                    pool_size=pool_size,
+                    max_overflow=10,
+                    pool_recycle=3600,
+                    pool_pre_ping=True
+                )
+                my_logger.info("SQLAlchemy Engine inizializzato per i nuovi moduli.")
+            except Exception as e:
+                my_logger.error(f"Errore creazione Engine SQLAlchemy: {e}")
+                raise MariaDbConnectError(f"Impossibile creare Engine: {e}")
+
+        return cls._engine
 # ---------------------------------------------------------------------------------------
 #
 # DEFINIZIONE DELLE CLASSI DI ERRORE CONNESSIONE AD DB

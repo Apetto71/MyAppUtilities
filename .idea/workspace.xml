@@ -4,8 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e8700e96-6b30-4cf3-947b-54938c2c9208" name="Changes" comment="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente">
+    <list default="true" id="e8700e96-6b30-4cf3-947b-54938c2c9208" name="Changes" comment="Aggiunta la config_manager">
+      <change afterPath="$PROJECT_DIR$/src/ai_models/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/ai_models/financial_lstm.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/config_manager/simple_config_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/MariaDbConnect/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/MariaDbConnect/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/MariaDbConnect/mariadbconnect.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/MariaDbConnect/mariadbconnect.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitRpcClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitRpcClient.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/config_manager/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/config_manager/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/config_manager/config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/config_manager/config_manager.back" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,12 +59,13 @@
     &quot;Python.test.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/aaperio/PycharmProjects/MyAppUtilities/src/configmanager&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/aaperio/PycharmProjects/MyAppUtilities/src/ai_models&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;com.intellij.pycharm.community.ide.impl.configuration.PythonContentEntriesConfigurable&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src/ai_models" />
       <recent name="$PROJECT_DIR$/src/configmanager" />
       <recent name="$PROJECT_DIR$/src/MariaDbConnect" />
     </key>
@@ -113,15 +122,43 @@
       <option name="project" value="LOCAL" />
       <updated>1762604365276</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente">
+      <option name="closed" value="true" />
+      <created>1762624479029</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1762624479029</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Aggiunta la config_manager">
+      <option name="closed" value="true" />
+      <created>1765558138963</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1765558138963</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Primo Commit" />
     <MESSAGE value="Modulo rabbitRpcClient.py:&#10;- Modificata la firma del modulo di publish per accettare anche un header personalizzato" />
     <MESSAGE value="Aggiunta l'utility per la gestione del file di configurazione che viene ricaricato a caldo, senza bisogno di riavviare il servizio per la sua rilettura" />
     <MESSAGE value="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente" />
-    <option name="LAST_COMMIT_MESSAGE" value="Modificata l'utility RabbitMQutil per rendere più stabili le connessioni e ricrearle nel momento in cui vengono chiuse inaspettatamente" />
+    <MESSAGE value="Aggiunta la config_manager" />
+    <option name="LAST_COMMIT_MESSAGE" value="Aggiunta la config_manager" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -137,7 +174,7 @@
           <option name="timeStamp" value="3" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/src/config_manager/config_manager.py</url>
+          <url>file://$PROJECT_DIR$/src/ai_models/financial_lstm.py</url>
           <option name="timeStamp" value="4" />
         </line-breakpoint>
       </breakpoints>
