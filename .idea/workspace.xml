@@ -5,15 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e8700e96-6b30-4cf3-947b-54938c2c9208" name="Changes" comment="Aggiunta la config_manager">
-      <change afterPath="$PROJECT_DIR$/src/ai_models/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/ai_models/financial_lstm.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/config_manager/simple_config_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/MariaDbConnect/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/MariaDbConnect/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/MariaDbConnect/mariadbconnect.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/MariaDbConnect/mariadbconnect.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitRpcClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/RabbitMqUtils/rabbitRpcClient.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/config_manager/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/config_manager/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/config_manager/config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/config_manager/config_manager.back" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/config_manager/simple_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/config_manager/simple_config_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/myapputilities.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/src/myapputilities.egg-info/PKG-INFO" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,7 +32,7 @@
 }</component>
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/Apetto71/MyAggUtilities.git&quot;,
+    &quot;url&quot;: &quot;git@github.com:Apetto71/MyAggUtilities&quot;,
     &quot;accountId&quot;: &quot;055648a4-ba2e-4d14-af4e-926e84c9ce7a&quot;
   }
 }</component>
