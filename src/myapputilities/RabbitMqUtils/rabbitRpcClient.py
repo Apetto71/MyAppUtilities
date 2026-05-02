@@ -4,7 +4,7 @@ import pika as pk
 import logging
 import uuid
 import threading
-from RabbitMqUtils.rabbitQueueDlq import RabbitConnectionError
+from myapputilities.RabbitMqUtils.rabbitQueueDlq import RabbitConnectionError
 from typing import Optional # Aggiungere in cima al file se non presente
 
 logger = logging.getLogger(__name__)
