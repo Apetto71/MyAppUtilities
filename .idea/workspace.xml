@@ -6,8 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="e8700e96-6b30-4cf3-947b-54938c2c9208" name="Changes" comment="Aggiunta la config_manager">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/config_manager/simple_config_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/config_manager/simple_config_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/myapputilities.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/src/myapputilities.egg-info/PKG-INFO" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
