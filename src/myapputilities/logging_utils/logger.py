@@ -31,7 +31,7 @@ class LogRotator:
             logging.Logger: L'istanza del logger configurata.
         """
         # Creiamo un'istanza del logger
-        logger = logging.getLogger('')
+        logger = logging.getLogger(self.logger_name)
         logger.setLevel(self.log_level)
 
         # Evitiamo di aggiungere handler multipli se il logger è già stato configurato
@@ -56,7 +56,7 @@ class LogRotator:
 
             # Definiamo il formato del log
             formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                '%(asctime)s - %(module)s - %(levelname)s - %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
             handler.setFormatter(formatter)
